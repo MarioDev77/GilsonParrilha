@@ -17,3 +17,9 @@ export const HOME_SECTIONS = [
 export const CART_STORAGE_KEY = "gilson-parrilha:carrinho:v1";
 export const ORDER_STORAGE_PREFIX = "gilson-parrilha:pedido:";
 export const POLL_INTERVAL_MS = 20_000;
+
+/** Fuso do estabelecimento: o selo "aberto agora" usa este horário, não o do aparelho do cliente. */
+export const BUSINESS_TZ = "America/Bahia";
+
+/** Chave do sessionStorage que marca a abertura (BrandIntro) já exibida nesta sessão. */
+export const INTRO_SEEN_KEY = "gilson-parrilha:intro:v1";

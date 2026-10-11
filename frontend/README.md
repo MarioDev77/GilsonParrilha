@@ -76,7 +76,7 @@ Status de pedido: `awaiting_whatsapp, confirmed, preparing, ready, out_for_deliv
 ```
 src/
   app/            (site)/ público · admin/ painel
-  components/     layout · products · cart · checkout · admin · ui
+  components/     layout · products · cart · checkout · admin · ui · fx (efeitos Canvas UI)
   context/        carrinho, configurações públicas, sessão admin
   hooks/          useAsync (com polling), useMenu, useCartQuote, useDebounce
   services/       camada HTTP e um serviço por domínio
@@ -84,6 +84,16 @@ src/
   types/          contratos da API
   utils/          formatação, status, WhatsApp
 ```
+
+> **Atenção:** não crie uma pasta `app/` na raiz do projeto. Se ela existir, o Next.js ignora `src/app` e todas as rotas, exceto uma, passam a dar 404. Tudo fica dentro de `src/`.
+
+## Efeitos (Canvas UI)
+
+`src/components/fx/` contém o **Blaze** (fogo no hero) e o **Flame Wrap** (borda de fogo no botão "Ver cardápio"), copiados de [github.com/DavidHDev/canvas-ui](https://github.com/DavidHDev/canvas-ui) (licença MIT + Commons Clause: pode usar em site de cliente, não pode revender os componentes). Só as variantes WebGL foram copiadas; não há dependência nova.
+
+- Sem o recurso experimental *HTML-in-canvas* do Chrome (o caso da maioria dos aparelhos), o conteúdo aparece como HTML normal e o efeito vira uma camada de fogo por cima. Nada quebra.
+- Os efeitos pausam fora da tela e respeitam `prefers-reduced-motion`.
+- Use só no hero. Não aplique no cardápio, carrinho ou checkout.
 
 ## Segurança
 

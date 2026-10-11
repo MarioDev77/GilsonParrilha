@@ -3,12 +3,23 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { INTRO_SEEN_KEY } from "@/config/site";
 
 export function BrandIntro() {
   const [visible, setVisible] = useState(true);
   const reduce = useReducedMotion();
 
   useEffect(() => {
+    // Mostra a abertura uma vez por sessão. Se o sessionStorage estiver indisponível, mostra normalmente.
+    let seen = false;
+    try {
+      seen = sessionStorage.getItem(INTRO_SEEN_KEY) === "1";
+      sessionStorage.setItem(INTRO_SEEN_KEY, "1");
+    } catch {}
+    if (seen) {
+      setVisible(false);
+      return;
+    }
     const timer = window.setTimeout(() => setVisible(false), 1700);
     return () => window.clearTimeout(timer);
   }, []);

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/context/CartContext";
 import type { Product } from "@/types";
@@ -14,11 +14,15 @@ const BADGE_LABEL = { mais_pedido: "Mais pedido", novidade: "Novidade" } as cons
 export function ProductCard({ product }: { product: Product }) {
   const { addLine } = useCart();
   const unavailable = !product.available;
+  // Lanches com adicionais ou ingredientes removíveis precisam das escolhas: levam à página do produto.
+  const needsChoices = product.addons.some((a) => a.available) || product.removableIngredients.length > 0;
+  const actionClass =
+    "relative z-10 inline-flex h-10 items-center gap-1.5 rounded-sm bg-carvao-700 px-3 text-sm font-semibold ring-1 ring-inset ring-carvao-600 hover:bg-brasa hover:text-white hover:ring-brasa";
 
   return (
     <article
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-sm border border-carvao-600 bg-carvao-800 transition-colors focus-within:border-cobre hover:border-cobre/70",
+        "group relative flex flex-col overflow-hidden rounded-sm border border-carvao-600 bg-carvao-800 transition-[border-color,box-shadow] duration-300 focus-within:border-brasa focus-within:shadow-[0_0_32px_-6px_rgb(212_86_26/0.5)] hover:border-brasa/70 hover:shadow-[0_0_32px_-6px_rgb(212_86_26/0.5)]",
         unavailable && "opacity-80"
       )}
     >
@@ -47,18 +51,24 @@ export function ProductCard({ product }: { product: Product }) {
 
         <div className="mt-auto flex items-center justify-between gap-3 pt-3">
           <span className={cn("text-xl font-bold", unavailable ? "text-fumaca line-through" : "text-cobre-300")}>{formatBRL(product.price)}</span>
-          <button
-            type="button"
-            disabled={unavailable}
-            onClick={() => {
-              addLine({ productId: product.id, name: product.name, quantity: 1, addonIds: [], removedIngredients: [], notes: "" });
-              toast.success(`${product.name} foi para o carrinho`);
-            }}
-            className="relative z-10 inline-flex h-10 items-center gap-1.5 rounded-sm bg-carvao-700 px-3 text-sm font-semibold ring-1 ring-inset ring-carvao-600 hover:bg-brasa hover:text-white hover:ring-brasa disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-carvao-700 disabled:hover:text-osso"
-            aria-label={`Adicionar ${product.name} ao carrinho`}
-          >
-            <Plus className="size-4" aria-hidden /> Adicionar
-          </button>
+          {needsChoices && !unavailable ? (
+            <Link href={`/produto/${encodeURIComponent(product.id)}`} className={actionClass} aria-label={`Personalizar ${product.name}`}>
+              <SlidersHorizontal className="size-4" aria-hidden /> Personalizar
+            </Link>
+          ) : (
+            <button
+              type="button"
+              disabled={unavailable}
+              onClick={() => {
+                addLine({ productId: product.id, name: product.name, quantity: 1, addonIds: [], removedIngredients: [], notes: "" });
+                toast.success(`${product.name} foi para o carrinho`);
+              }}
+              className={cn(actionClass, "disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-carvao-700 disabled:hover:text-osso")}
+              aria-label={`Adicionar ${product.name} ao carrinho`}
+            >
+              <Plus className="size-4" aria-hidden /> Adicionar
+            </button>
+          )}
         </div>
       </div>
     </article>

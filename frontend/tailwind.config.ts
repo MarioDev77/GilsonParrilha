@@ -19,11 +19,13 @@ const config: Config = {
       keyframes: {
         slideIn: { from: { transform: "translateX(100%)" }, to: { transform: "translateX(0)" } },
         pop: { from: { opacity: "0", transform: "scale(.97)" }, to: { opacity: "1", transform: "scale(1)" } },
+        dropIn: { from: { opacity: "0", transform: "translateY(-8px)" }, to: { opacity: "1", transform: "translateY(0)" } },
         shimmer: { "100%": { transform: "translateX(100%)" } },
       },
       animation: {
         slideIn: "slideIn .28s cubic-bezier(.2,.8,.2,1)",
         pop: "pop .18s ease-out",
+        dropIn: "dropIn .22s cubic-bezier(.2,.8,.2,1)",
       },
     },
   },

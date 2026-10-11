@@ -52,6 +52,8 @@
     overflow: hidden;
     background: #100c09;
   }
+  /* Marcado por um script no <head> (layout.tsx) antes da primeira pintura: sem flash para quem já viu a abertura. */
+  html[data-intro-seen] .brand-intro { display: none; }
   .brand-intro__glow {
     position: absolute;
     width: min(80vw, 38rem);

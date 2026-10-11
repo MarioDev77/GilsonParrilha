@@ -1,9 +1,11 @@
 "use client";
 
-import { ExternalLink, MapPin, Phone } from "lucide-react";
+import { ExternalLink, MapPin, MessageCircle, Navigation, Phone } from "lucide-react";
+import { buttonClass } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/States";
 import { useSettings } from "@/context/SettingsContext";
 import { formatBRL } from "@/utils/format";
+import { waLink } from "@/utils/whatsapp";
 
 export function BusinessInfo() {
   const { settings, loading } = useSettings();
@@ -67,6 +69,32 @@ export function BusinessInfo() {
               </li>
             )}
           </ul>
+          {settings && (settings.address || settings.whatsapp) ? (
+            <div className="mt-6 flex flex-wrap gap-3">
+              {settings.address && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.address)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonClass("primary", "md")}
+                >
+                  <Navigation className="size-4" aria-hidden /> Como chegar
+                  <span className="sr-only">(abre em nova aba)</span>
+                </a>
+              )}
+              {settings.whatsapp && (
+                <a
+                  href={waLink(settings.whatsapp, "Olá! Vim pelo site.")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonClass("secondary", "md")}
+                >
+                  <MessageCircle className="size-4" aria-hidden /> Chamar no WhatsApp
+                  <span className="sr-only">(abre em nova aba)</span>
+                </a>
+              )}
+            </div>
+          ) : null}
           {settings && (settings.minimumOrder || settings.deliveryFee) ? (
             <p className="mt-6 text-sm text-fumaca">
               {settings.deliveryFee ? `Taxa de entrega: ${formatBRL(settings.deliveryFee)}. ` : ""}
