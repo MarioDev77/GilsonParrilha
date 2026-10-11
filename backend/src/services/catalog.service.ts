@@ -27,7 +27,7 @@ export const catalogService = {
 
   async getProduct(slugOrId: string) {
     const row = (await catalogRepository.findProductBySlugOrId(slugOrId)) as
-      | (ProductRow & { extras: { extra: ExtraRow }[] })
+      | (Omit<ProductRow, 'extras'> & { extras: { extra: ExtraRow }[] })
       | null;
     if (!row) throw AppError.notFound('Produto não encontrado');
     return { ...toPublicProduct(row), extras: row.extras.map((pe) => toPublicExtra(pe.extra)) };
