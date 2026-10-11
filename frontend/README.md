@@ -28,7 +28,7 @@ Verificação de tipos: `npm run typecheck`.
 
 | Variável | Descrição |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | URL base da API, ex.: `http://localhost:4000/api/v1`. Pública: nunca coloque segredos. |
+| `NEXT_PUBLIC_API_URL` | URL base da API, ex.: `http://localhost:3333/api/v1` (a porta do backend em `PORT`). Pública: nunca coloque segredos. |
 | `NEXT_PUBLIC_SITE_URL` | URL pública do site (metadados). |
 
 Variáveis `NEXT_PUBLIC_*` são embutidas no build. Mudou a URL da API? Gere o build de novo.
@@ -42,26 +42,24 @@ Variáveis `NEXT_PUBLIC_*` são embutidas no build. Mudou a URL da API? Gere o b
 - **Upload de imagens**: endpoint `POST /admin/uploads` do backend.
 - **Seções da home**: "Combos" e "Acompanhamentos e bebidas" agrupam categorias por *slug* (`src/config/site.ts`, `HOME_SECTIONS`). Ajuste os slugs conforme as categorias reais.
 
-## Contrato esperado da API
+## Integração com o backend
 
-Nenhuma documentação do backend foi fornecida, então os contratos em `src/types/index.ts` e `src/services/*` são uma **proposta**. Se o backend real for diferente, ajuste esses dois lugares; as telas não precisam mudar. Valores em reais (`number`). Corpos JSON sem envelope.
+O contrato é o do backend (veja o README dele). Ele trabalha em **centavos**, responde `{ data }` / `{ data, meta }` / `{ error: { code, message } }` e usa enums em pt-BR (`DELIVERY`, `AGUARDANDO_CONTATO_WHATSAPP`...). Toda a tradução fica em **`src/services/mappers.ts`** (mais `services/http.ts` para envelope, erros e CSRF); os modelos de `src/types` (valores em reais, enums em inglês) são o que as telas usam. Se o backend mudar, ajuste esses arquivos; as telas não precisam mudar.
 
-Públicos:
+Públicos (já integrados):
 
-| Método e rota | Uso |
+| Rota do backend | Uso no site |
 |---|---|
-| `GET /categories` | Categorias (`id, name, slug, order, active`) |
-| `GET /products` | Produtos com `addons`, `ingredients`, `removableIngredients`, `available`, `featured`, `badge` |
-| `GET /products/:id` | Detalhe de um produto |
-| `GET /settings` | Configurações públicas (nome, WhatsApp, horários, taxa, etc.) |
-| `POST /cart/quote` | Recebe `{ items, fulfillment }`; devolve preços oficiais, disponibilidade e `canCheckout` |
-| `POST /orders` | Registra o pedido. Header `Idempotency-Key`. Devolve `id`, `number`, `status`, totais e `whatsappUrl` ou `whatsappMessage` |
+| `GET /categories` | Categorias ativas, já ordenadas |
+| `GET /products` | Cardápio. O backend pagina (máx. 50); o `productsService.list` busca todas as páginas. Cada produto traz `hasExtras`; os adicionais completos vêm só no detalhe |
+| `GET /products/:slugOuId` | Detalhe com adicionais. O site usa o `id` do produto nos links |
+| `GET /settings/public` | Nome, WhatsApp, endereço, horários, taxa, pedido mínimo |
+| `POST /cart/quote` | Preços oficiais, disponibilidade, pedido mínimo, horário e `canCheckout` |
+| `POST /orders` | Registra o pedido (`Idempotency-Key`). Devolve o pedido e o link do WhatsApp prontos |
 
-Administrativos (todos exigem sessão válida; 401 → login, 403 → "sem permissão"):
+Painel admin: só **login, `/me` e logout** existem no backend hoje. O token CSRF devolvido por eles é guardado **em memória** e enviado em `X-CSRF-Token` em toda requisição que altera dados. As demais telas do painel (`/admin/orders`, `/admin/products`, `/admin/categories`, `/admin/settings`, `/admin/users`, `/admin/dashboard`, `/admin/uploads`) aguardam as Etapas 5 e 6 do backend; os `services/` correspondentes ainda seguem o contrato proposto antes (reais, sem envelope) e **precisarão passar pelo mapeador** quando essas rotas existirem. Alterações usam `PATCH`, o método liberado no CORS do backend.
 
-`POST /admin/auth/login` · `POST /admin/auth/logout` · `GET /admin/auth/me` · `GET /admin/dashboard?days=` · `GET /admin/orders` (filtros `q, status, dateFrom, dateTo, page, pageSize`) · `GET /admin/orders/:id` (inclui `allowedTransitions`) · `PATCH /admin/orders/:id/status` (`{ status, reason? }`) · `PATCH /admin/orders/:id/notes` · `GET|POST /admin/products` · `PUT|DELETE /admin/products/:id` · `PATCH /admin/products/:id/availability` · `GET|POST /admin/categories` · `PUT|DELETE /admin/categories/:id` · `PUT /admin/categories/order` · `GET|PUT /admin/settings` · `GET|POST /admin/users` · `PUT|DELETE /admin/users/:id` · `GET /admin/roles` · `POST /admin/uploads`
-
-Status de pedido: `awaiting_whatsapp, confirmed, preparing, ready, out_for_delivery, completed, cancelled`.
+Status de pedido nas telas: `awaiting_whatsapp, confirmed, preparing, ready, out_for_delivery, completed, cancelled`.
 
 ## Como o fluxo do pedido funciona
 

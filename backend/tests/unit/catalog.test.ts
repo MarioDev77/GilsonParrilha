@@ -69,6 +69,18 @@ describe('toPublicProduct', () => {
     expect(dto).not.toHaveProperty('archivedAt');
     expect(dto).not.toHaveProperty('createdAt');
     expect(dto.priceCents).toBe(3290);
+    expect(dto.hasExtras).toBe(false);
+  });
+
+  it('indica se o produto aceita adicionais sem expor os vínculos', () => {
+    const row = {
+      id: 'p1', name: 'X', slug: 'x', description: '', ingredients: [], removableIngredients: [], priceCents: 1000,
+      imageUrl: null, isFeatured: false, isAvailable: true, category: { id: 'c1', name: 'C', slug: 'c' },
+      extras: [{ extraId: 'e1' }],
+    };
+    const dto = toPublicProduct(row);
+    expect(dto.hasExtras).toBe(true);
+    expect(dto).not.toHaveProperty('extras');
   });
 });
 

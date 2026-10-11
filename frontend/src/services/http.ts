@@ -3,20 +3,39 @@ import { API_URL } from "@/config/site";
 export class ApiError extends Error {
   status: number;
   code?: string;
-  constructor(message: string, status: number, code?: string) {
+  details?: unknown;
+  constructor(message: string, status: number, code?: string, details?: unknown) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
 export const ADMIN_UNAUTHORIZED_EVENT = "gilson:admin-unauthorized";
 
+/**
+ * Token CSRF do painel: o backend devolve no login e no /me e exige o cabeçalho X-CSRF-Token em toda
+ * requisição que altera dados. Fica só em memória (nunca em localStorage); após recarregar a página, o /me o devolve de novo.
+ */
+let csrfToken: string | null = null;
+export function setCsrfToken(token: string | null): void {
+  csrfToken = token;
+}
+
+/** Metadados de paginação das listas do backend. */
+export interface PageMeta {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 type Query = Record<string, string | number | boolean | null | undefined>;
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   formData?: FormData;
   query?: Query;
@@ -59,7 +78,17 @@ function genericMessage(status: number): string {
   }
 }
 
-export async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+function validationMessage(details: unknown): string | null {
+  if (!Array.isArray(details)) return null;
+  for (const d of details) {
+    const m = (d as { message?: unknown } | null)?.message;
+    if (typeof m === "string" && m) return m;
+  }
+  return null;
+}
+
+/** Faz a chamada e devolve o corpo JSON já interpretado (envelope `{ data }` / `{ data, meta }` intacto). */
+async function send(path: string, opts: RequestOptions): Promise<unknown> {
   const { method = "GET", body, formData, query, headers = {}, admin = false, signal, timeoutMs = 20_000 } = opts;
 
   const controller = new AbortController();
@@ -72,6 +101,7 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
     signal: controller.signal,
     headers: { Accept: "application/json", ...headers },
   };
+  if (csrfToken && method !== "GET") (init.headers as Record<string, string>)["X-CSRF-Token"] = csrfToken;
   if (formData) {
     init.body = formData;
   } else if (body !== undefined) {
@@ -93,7 +123,7 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
     clearTimeout(timer);
   }
 
-  if (res.status === 204) return undefined as T;
+  if (res.status === 204) return undefined;
 
   let data: unknown = null;
   const text = await res.text();
@@ -109,13 +139,30 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
     if (res.status === 401 && admin && typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent(ADMIN_UNAUTHORIZED_EVENT));
     }
-    const payload = (data ?? {}) as { message?: unknown; code?: unknown };
-    // Só mostramos mensagens do servidor em erros de validação/regra (4xx); erros 5xx ficam genéricos.
-    const safe = res.status < 500 && res.status !== 401 && typeof payload.message === "string" ? payload.message : null;
-    throw new ApiError(safe ?? genericMessage(res.status), res.status, typeof payload.code === "string" ? payload.code : undefined);
+    // O backend responde erros como { error: { code, message, details? } }.
+    const payload = ((data as { error?: unknown } | null)?.error ?? {}) as { message?: unknown; code?: unknown; details?: unknown };
+    const code = typeof payload.code === "string" ? payload.code : undefined;
+    // Mensagens do servidor só em erros 4xx (validação/regra). 5xx ficam genéricas; um 401 no painel vira "sessão expirou",
+    // mas no login (admin: false) a mensagem do servidor ("e-mail ou senha inválidos") é a útil.
+    const showServer = res.status < 500 && (res.status !== 401 || !admin) && code !== "CSRF_INVALID";
+    const serverMessage = showServer ? validationMessage(payload.details) ?? (typeof payload.message === "string" ? payload.message : null) : null;
+    const message = code === "CSRF_INVALID" ? "Sua sessão de segurança expirou. Recarregue a página e entre novamente." : serverMessage ?? genericMessage(res.status);
+    throw new ApiError(message, res.status, code, payload.details);
   }
 
-  return data as T;
+  return data;
+}
+
+/** Chamada comum: o backend envolve o sucesso em `{ data }`; aqui devolvemos só o `data`. */
+export async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const body = await send(path, opts);
+  if (body === undefined) return undefined as T;
+  return (body as { data: T } | null)?.data as T;
+}
+
+/** Listas paginadas: `{ data, meta }`. */
+export async function requestPage<T>(path: string, opts: RequestOptions = {}): Promise<{ data: T[]; meta: PageMeta }> {
+  return (await send(path, opts)) as { data: T[]; meta: PageMeta };
 }
 
 export function errorMessage(err: unknown): string {

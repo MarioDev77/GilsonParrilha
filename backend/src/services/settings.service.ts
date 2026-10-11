@@ -22,6 +22,7 @@ export const settingsService = {
       deliveryFeeCents: s.deliveryFeeCents,
       minOrderCents: s.minOrderCents,
       estimatedPrepMinutes: s.estimatedPrepMinutes,
+      defaultMessage: s.defaultMessage,
       socialLinks: s.socialLinks,
       menuSettings: s.menuSettings,
     };

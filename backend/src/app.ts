@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'node:path';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -61,6 +62,7 @@ export function createApp() {
   app.use(express.json({ limit: '100kb', strict: true }));
   app.use(cookieParser());
 
+  app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads'), { fallthrough: false, maxAge: '7d', immutable: true }));
   app.use('/api/v1', apiRouter);
 
   app.use(notFoundHandler);

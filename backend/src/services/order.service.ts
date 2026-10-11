@@ -3,9 +3,11 @@ import { logger } from '../config/logger';
 import { AppError } from '../errors/app-error';
 import { orderRepository, type OrderWithItems } from '../repositories/order.repository';
 import { settingsRepository } from '../repositories/settings.repository';
-import type { CreateOrderInput } from '../schemas/order.schema';
+import type { CreateOrderInput, QuoteInput } from '../schemas/order.schema';
 import { isOpenAt, parseOpeningHours } from '../utils/business-hours';
-import { computeLineTotal, computeOrderTotals } from '../utils/order-pricing';
+import { buildCartQuote } from '../utils/cart-quote';
+import { computeOrderTotals } from '../utils/order-pricing';
+import { resolveOrderItems } from '../utils/order-items';
 import { normalizeWhatsappNumber } from '../utils/phone';
 import { generatePublicId } from '../utils/public-id';
 import { hashOrderRequest } from '../utils/request-hash';
@@ -13,15 +15,6 @@ import { buildWhatsappLink } from '../utils/whatsapp';
 import { toCreatedOrder, toPublicOrderSummary } from './order.mapper';
 
 type Settings = NonNullable<Awaited<ReturnType<typeof settingsRepository.get>>>;
-
-type ItemIssueReason = 'PRODUCT_UNAVAILABLE' | 'EXTRA_NOT_ALLOWED' | 'EXTRA_UNAVAILABLE' | 'INGREDIENT_NOT_REMOVABLE';
-interface ItemIssue {
-  itemIndex: number;
-  reason: ItemIssueReason;
-  productId: string;
-  extraId?: string;
-  ingredient?: string;
-}
 
 const INITIAL_STATUS = 'AGUARDANDO_CONTATO_WHATSAPP' as const;
 const MAX_CREATE_ATTEMPTS = 3;
@@ -94,51 +87,7 @@ export const orderService = {
     const productIds = [...new Set(input.items.map((i) => i.productId))];
     const products = new Map((await orderRepository.findProductsForOrder(productIds)).map((p) => [p.id, p]));
 
-    const issues: ItemIssue[] = [];
-    const lines = input.items.map((item, itemIndex) => {
-      const product = products.get(item.productId);
-      if (!product || !product.isAvailable) {
-        issues.push({ itemIndex, reason: 'PRODUCT_UNAVAILABLE', productId: item.productId });
-        return null;
-      }
-
-      const allowed = new Map(product.extras.map((pe) => [pe.extra.id, pe.extra]));
-      const extras = [];
-      for (const sel of item.extras) {
-        const extra = allowed.get(sel.extraId);
-        if (!extra) {
-          issues.push({ itemIndex, reason: 'EXTRA_NOT_ALLOWED', productId: product.id, extraId: sel.extraId });
-        } else if (!extra.isActive || !extra.isAvailable || extra.archivedAt) {
-          issues.push({ itemIndex, reason: 'EXTRA_UNAVAILABLE', productId: product.id, extraId: sel.extraId });
-        } else {
-          extras.push({ extraId: extra.id, name: extra.name, unitPriceCents: extra.priceCents, quantity: sel.quantity });
-        }
-      }
-
-      // Só pode retirar ingredientes que o produto permite; grava o nome oficial do cardápio.
-      const removable = new Map(product.removableIngredients.map((name) => [name.toLowerCase(), name]));
-      const removed: string[] = [];
-      for (const requested of item.removedIngredients) {
-        const official = removable.get(requested.toLowerCase());
-        if (!official) {
-          issues.push({ itemIndex, reason: 'INGREDIENT_NOT_REMOVABLE', productId: product.id, ingredient: requested });
-        } else if (!removed.includes(official)) {
-          removed.push(official);
-        }
-      }
-
-      return {
-        productId: product.id,
-        productName: product.name,
-        unitPriceCents: product.priceCents,
-        quantity: item.quantity,
-        removedIngredients: removed,
-        notes: item.notes ?? null,
-        extras,
-        lineTotalCents: computeLineTotal({ unitPriceCents: product.priceCents, quantity: item.quantity, extras }),
-      };
-    });
-
+    const { lines, issues } = resolveOrderItems(input.items, products);
     if (issues.length > 0) {
       throw AppError.unprocessable(
         'ITEM_UNAVAILABLE',
@@ -226,6 +175,25 @@ export const orderService = {
       }
     }
     throw new Error('Não foi possível gerar um identificador público único para o pedido');
+  },
+
+  // Cotação do carrinho: mesmas regras e preços do pedido, mas não grava nada.
+  // Problemas (item indisponível, loja fechada, pedido mínimo...) voltam na resposta, não como erro.
+  async quote(input: QuoteInput) {
+    const settings = await settingsRepository.get();
+    if (!settings) throw AppError.unavailable('Loja ainda não configurada');
+
+    const productIds = [...new Set(input.items.map((i) => i.productId))];
+    const products = new Map((await orderRepository.findProductsForOrder(productIds)).map((p) => [p.id, p]));
+    const isOpenNow = isOpenAt(parseOpeningHours(settings.openingHours), settings.timezone);
+
+    return buildCartQuote({
+      items: input.items,
+      fulfillmentType: input.fulfillmentType,
+      products,
+      settings,
+      isOpenNow,
+    });
   },
 
   // Consulta pública: só pelo publicId aleatório; devolve o mínimo necessário.

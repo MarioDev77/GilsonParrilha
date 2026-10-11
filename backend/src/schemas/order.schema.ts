@@ -40,7 +40,7 @@ const extraSelection = z
   })
   .strict();
 
-const orderItem = z
+export const orderItem = z
   .object({
     productId: z.string().uuid(),
     quantity: z.number().int().min(1).max(20),
@@ -85,6 +85,15 @@ export const createOrderSchema = z
   );
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
+
+// Cotação do carrinho: mesmos itens do pedido; a modalidade é opcional (a taxa só entra com ela).
+export const quoteSchema = z
+  .object({
+    fulfillmentType: z.enum(['DELIVERY', 'PICKUP']).optional(),
+    items: z.array(orderItem).min(1, 'O carrinho está vazio').max(30),
+  })
+  .strict();
+export type QuoteInput = z.infer<typeof quoteSchema>;
 
 export const idempotencyKeySchema = z
   .string({ required_error: 'Cabeçalho Idempotency-Key é obrigatório' })

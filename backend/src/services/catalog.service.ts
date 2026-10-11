@@ -25,8 +25,8 @@ export const catalogService = {
     };
   },
 
-  async getProduct(slug: string) {
-    const row = (await catalogRepository.findProductBySlug(slug)) as
+  async getProduct(slugOrId: string) {
+    const row = (await catalogRepository.findProductBySlugOrId(slugOrId)) as
       | (ProductRow & { extras: { extra: ExtraRow }[] })
       | null;
     if (!row) throw AppError.notFound('Produto não encontrado');

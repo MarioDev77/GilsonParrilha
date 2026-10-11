@@ -1,7 +1,7 @@
 import type { RequestHandler } from 'express';
 import { AppError } from '../errors/app-error';
 import { idempotencyKeySchema, publicIdParamSchema } from '../schemas/order.schema';
-import type { CreateOrderInput } from '../schemas/order.schema';
+import type { CreateOrderInput, QuoteInput } from '../schemas/order.schema';
 import { orderService } from '../services/order.service';
 import { asyncHandler } from '../utils/async-handler';
 
@@ -23,4 +23,9 @@ export const getPublicOrder: RequestHandler = asyncHandler(async (req, res) => {
   // Formato inválido responde igual a "não existe": não ajuda a sondar o identificador.
   if (!publicId.success) throw AppError.notFound('Pedido não encontrado');
   res.json({ data: await orderService.getPublicSummary(publicId.data) });
+});
+
+export const quoteCart: RequestHandler = asyncHandler(async (req, res) => {
+  // O corpo já foi validado por validateBody(quoteSchema).
+  res.json({ data: await orderService.quote(req.body as QuoteInput) });
 });

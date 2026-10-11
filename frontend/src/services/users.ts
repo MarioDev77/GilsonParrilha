@@ -14,6 +14,6 @@ export const usersService = {
   roles: (signal?: AbortSignal) => request<AdminRole[]>("/admin/roles", { admin: true, signal }),
   create: (input: UserInput) => request<AdminUser>("/admin/users", { method: "POST", body: input, admin: true }),
   update: (id: string, input: Omit<UserInput, "password">) =>
-    request<AdminUser>(`/admin/users/${encodeURIComponent(id)}`, { method: "PUT", body: input, admin: true }),
+    request<AdminUser>(`/admin/users/${encodeURIComponent(id)}`, { method: "PATCH", body: input, admin: true }),
   remove: (id: string) => request<void>(`/admin/users/${encodeURIComponent(id)}`, { method: "DELETE", admin: true }),
 };

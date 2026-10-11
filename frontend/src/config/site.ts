@@ -1,5 +1,5 @@
 /** Configurações do frontend. Nada aqui é segredo. */
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1").replace(/\/+$/, "");
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3333/api/v1").replace(/\/+$/, "");
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
 /** Nome usado enquanto as configurações da API não carregam e na logo tipográfica provisória. */

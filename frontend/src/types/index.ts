@@ -1,6 +1,7 @@
 /**
- * Contratos esperados da API. Valores monetários em REAIS (number, ex.: 32.9).
- * Se o backend usar outro formato (ex.: centavos), ajuste aqui e em `utils/format.ts`.
+ * Modelos usados pelas telas. Valores monetários em REAIS (number, ex.: 32.9).
+ * O backend trabalha em centavos, com outros nomes de campo e enums; a conversão fica toda em
+ * `services/mappers.ts`, então as telas não conhecem o formato da API.
  */
 
 export type Fulfillment = "delivery" | "pickup";
@@ -18,6 +19,7 @@ export interface Category {
   id: string;
   name: string;
   slug: string;
+  /** O backend já devolve as categorias ordenadas; aqui é a posição na lista. */
   order: number;
   active: boolean;
   productCount?: number;
@@ -34,6 +36,7 @@ export type ProductBadge = "mais_pedido" | "novidade" | null;
 
 export interface Product {
   id: string;
+  slug: string;
   name: string;
   description: string;
   ingredients: string[];
@@ -45,7 +48,9 @@ export interface Product {
   available: boolean;
   featured: boolean;
   badge: ProductBadge;
+  /** Adicionais completos só vêm no detalhe do produto; a lista traz apenas `hasAddons`. */
   addons: Addon[];
+  hasAddons?: boolean;
 }
 
 export interface OpeningHour {
@@ -84,6 +89,10 @@ export interface CartLine {
 }
 
 export interface OrderItemInput {
+  /** Só para casar a resposta da cotação com a linha do carrinho; nunca é enviado ao backend. */
+  key?: string;
+  /** Só para exibir um nome quando o produto não existe mais; nunca é enviado ao backend. */
+  name?: string;
   productId: string;
   quantity: number;
   addonIds: string[];

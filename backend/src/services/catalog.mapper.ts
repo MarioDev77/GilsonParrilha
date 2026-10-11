@@ -18,6 +18,8 @@ export interface ProductRow {
   isFeatured: boolean;
   isAvailable: boolean;
   category: { id: string; name: string; slug: string };
+  // Vínculos de adicionais visíveis (a listagem traz no máximo 1, só para indicar que existem).
+  extras?: unknown[];
 }
 
 export interface CategoryRow {
@@ -45,6 +47,7 @@ export function toPublicProduct(row: ProductRow) {
     imageUrl: row.imageUrl,
     isFeatured: row.isFeatured,
     isAvailable: row.isAvailable,
+    hasExtras: (row.extras?.length ?? 0) > 0,
     category: { id: row.category.id, name: row.category.name, slug: row.category.slug },
   };
 }

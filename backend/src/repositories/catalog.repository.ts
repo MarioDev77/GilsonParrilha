@@ -7,6 +7,7 @@ const visibleProduct = {
   archivedAt: null,
   category: { isActive: true },
 };
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const visibleExtra = { isActive: true, isAvailable: true, archivedAt: null };
 
 const extraSelect = { id: true, name: true, description: true, priceCents: true } as const;
@@ -23,6 +24,8 @@ const productSelect = {
   isFeatured: true,
   isAvailable: true,
   category: { select: { id: true, name: true, slug: true } },
+  // Só para saber se o produto aceita adicionais (a lista não traz os adicionais em si).
+  extras: { where: { extra: visibleExtra }, select: { extraId: true }, take: 1 },
 } as const;
 
 function productOrderBy(sort: ProductListQuery['sort']) {
@@ -82,9 +85,11 @@ export const catalogRepository = {
     return { total, items };
   },
 
-  findProductBySlug(slug: string) {
+  // Aceita o slug (URL amigável) ou o UUID do produto (usado pelo carrinho e por links antigos).
+  findProductBySlugOrId(slugOrId: string) {
+    const key = UUID_PATTERN.test(slugOrId) ? { id: slugOrId } : { slug: slugOrId };
     return prisma.product.findFirst({
-      where: { slug, ...visibleProduct },
+      where: { ...key, ...visibleProduct },
       select: {
         ...productSelect,
         extras: {

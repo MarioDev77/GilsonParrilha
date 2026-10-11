@@ -39,3 +39,6 @@ export const createOrderLimiter = createRateLimiter({
 
 // Consulta pública por publicId (identificador aleatório de 144 bits; o limite barra varredura).
 export const publicOrderLookupLimiter = createRateLimiter({ windowMs: 60_000, limit: 60 });
+
+// Cotação do carrinho: chamada a cada alteração (com debounce no site), por isso o limite é maior que o dos pedidos.
+export const quoteLimiter = createRateLimiter({ windowMs: 60_000, limit: 120 });

@@ -76,11 +76,11 @@ curl -b jar.txt http://localhost:3333/api/v1/admin/auth/me
 |---|---|
 | `GET /api/v1/categories` | Categorias ativas, com `productCount` (produtos visíveis) |
 | `GET /api/v1/products` | Lista paginada. Filtros: `category` (slug), `search` (nome/descrição, mín. 2 letras), `featured=true`, `sort=default\|price_asc\|price_desc\|name`, `page`, `pageSize` (máx. 50) |
-| `GET /api/v1/products/:slug` | Detalhe + adicionais permitidos e disponíveis |
+| `GET /api/v1/products/:slug` | Detalhe + adicionais permitidos e disponíveis. Aceita também o **UUID** do produto no lugar do slug |
 | `GET /api/v1/extras` | Adicionais disponíveis. Filtro opcional: `product=<slug>` |
 | `GET /api/v1/settings/public` | Dados públicos da loja + `isOpenNow` (calculado no fuso da loja) |
 
-Regras: só aparecem produtos **ativos, não arquivados, de categoria ativa**; a listagem mostra apenas os **disponíveis**, e o detalhe devolve `isAvailable` (para o site exibir "indisponível" em links antigos). Preços sempre em centavos (`priceCents`). Respostas de lista: `{ data: [...], meta: { page, pageSize, total, totalPages } }`. Cache público de 30 s.
+Regras: só aparecem produtos **ativos, não arquivados, de categoria ativa**; a listagem mostra apenas os **disponíveis**, e o detalhe devolve `isAvailable` (para o site exibir "indisponível" em links antigos). Preços sempre em centavos (`priceCents`). Cada produto traz `hasExtras` (aceita adicionais?) — os adicionais em si vêm no detalhe ou em `/extras`. Respostas de lista: `{ data: [...], meta: { page, pageSize, total, totalPages } }`. Cache público de 30 s.
 
 ## 7. Pedidos (Etapa 4)
 
@@ -139,6 +139,16 @@ Regras: fora do horário com `acceptOrdersOutsideHours=true` o pedido é aceito 
 Consulta pública pelo identificador aleatório (144 bits, 24 caracteres). Devolve só o necessário: status, itens, valores, **primeiro nome**, modalidade e datas. Não devolve telefone, endereço, observações internas nem ids internos. Identificador inválido ou inexistente responde `404` igual. Limite: 60/min por IP. Não há listagem pública nem consulta por número sequencial.
 
 > Ambas as rotas respondem com `Cache-Control: no-store`.
+
+### `POST /api/v1/cart/quote`
+Cotação do carrinho: aplica **as mesmas regras e preços** do `POST /orders`, mas não grava nada e não exige `Idempotency-Key`. Limite: 120/min por IP.
+
+```json
+{ "fulfillmentType": "DELIVERY", "items": [{ "productId": "<uuid>", "quantity": 2, "extras": [{ "extraId": "<uuid>", "quantity": 1 }], "removedIngredients": ["Cebola"], "notes": "" }] }
+```
+`fulfillmentType` é opcional (sem ele, `deliveryFeeCents` vem `null`). O corpo é `.strict()`, como no pedido: preço ou total enviado pelo cliente é rejeitado.
+
+Resposta `200` → `{ data: { lines, subtotalCents, deliveryFeeCents, totalCents, minOrderCents, canCheckout, issues, isOpenNow, outsideBusinessHours } }`. Cada linha (mesma ordem do pedido) traz `name`, `imageUrl`, `available`, `unitPriceCents`, `extras`, `lineTotalCents` e `issue`. Problemas de regra **não** viram erro: item indisponível, adicional ou ingrediente inválido, modalidade não aceita, loja fechada e pedido mínimo voltam em `issues` (texto em pt-BR) com `canCheckout: false`. Só entrada malformada responde `400`.
 
 ## 8. Verificar
 ```bash

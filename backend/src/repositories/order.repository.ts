@@ -23,6 +23,7 @@ export const orderRepository = {
         id: true,
         name: true,
         priceCents: true,
+        imageUrl: true,
         isAvailable: true,
         removableIngredients: true,
         extras: {

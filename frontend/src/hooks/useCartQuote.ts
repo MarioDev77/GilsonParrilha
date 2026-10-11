@@ -12,6 +12,8 @@ export function useCartQuote(fulfillment?: Fulfillment) {
   const items = useMemo<OrderItemInput[]>(
     () =>
       lines.map((l) => ({
+        key: l.key,
+        name: l.name,
         productId: l.productId,
         quantity: l.quantity,
         addonIds: l.addonIds,

@@ -15,7 +15,7 @@ export function ProductCard({ product }: { product: Product }) {
   const { addLine } = useCart();
   const unavailable = !product.available;
   // Lanches com adicionais ou ingredientes removíveis precisam das escolhas: levam à página do produto.
-  const needsChoices = product.addons.some((a) => a.available) || product.removableIngredients.length > 0;
+  const needsChoices = (product.hasAddons ?? product.addons.some((a) => a.available)) || product.removableIngredients.length > 0;
   const actionClass =
     "relative z-10 inline-flex h-10 items-center gap-1.5 rounded-sm bg-carvao-700 px-3 text-sm font-semibold ring-1 ring-inset ring-carvao-600 hover:bg-brasa hover:text-white hover:ring-brasa";
 

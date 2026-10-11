@@ -105,8 +105,7 @@ function Detail({ orderId, onChanged }: { orderId: string; onChanged: () => void
         {order.address && (
           <p>
             <span className="text-fumaca">Endereço: </span>
-            {order.address.street}, {order.address.number}
-            {order.address.complement ? ` - ${order.address.complement}` : ""}, {order.address.district}, {order.address.city}
+            {[order.address.street, order.address.number, order.address.complement, order.address.district, order.address.city].filter((part) => typeof part === "string" && part.trim()).join(", ")}
           </p>
         )}
         {order.reference && (
