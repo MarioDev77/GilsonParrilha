@@ -1,0 +1,112 @@
+@import "@fontsource-variable/big-shoulders-display";
+@import "@fontsource-variable/figtree";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-carvao font-sans text-osso antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3, h4 {
+    @apply font-display;
+    letter-spacing: 0.01em;
+  }
+  :focus-visible {
+    outline: 2px solid #F08A55;
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: #D4561A;
+    color: #fff;
+  }
+  dialog::backdrop {
+    background: rgb(10 7 5 / 0.72);
+    backdrop-filter: blur(2px);
+  }
+}
+
+@layer components {
+  /* Grelha: o elemento de marca do site. Barras de ferro com brilho de brasa por baixo. */
+  .grelha {
+    background-color: #17120F;
+    background-image:
+      repeating-linear-gradient(90deg, transparent 0 46px, rgb(0 0 0 / 0.55) 46px 52px),
+      radial-gradient(120% 90% at 78% 110%, rgb(212 86 26 / 0.55) 0%, rgb(122 30 30 / 0.35) 35%, transparent 70%);
+  }
+  .grelha-fina {
+    background-image: repeating-linear-gradient(90deg, transparent 0 10px, rgb(255 255 255 / 0.035) 10px 12px);
+  }
+  .brand-intro {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background: #100c09;
+  }
+  .brand-intro__glow {
+    position: absolute;
+    width: min(80vw, 38rem);
+    aspect-ratio: 1;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgb(192 129 63 / 0.22), rgb(212 86 26 / 0.08) 38%, transparent 70%);
+    filter: blur(8px);
+    animation: pulseGlow 2.2s ease-in-out infinite;
+  }
+  .brand-intro__logo {
+    width: clamp(9rem, 42vw, 15rem);
+    height: clamp(9rem, 42vw, 15rem);
+    border-radius: 999px;
+    object-fit: cover;
+    border: 1px solid rgb(221 166 104 / 0.7);
+    box-shadow: 0 0 0 8px rgb(192 129 63 / 0.08), 0 18px 70px rgb(0 0 0 / 0.55);
+  }
+  .brand-intro__embers {
+    position: absolute;
+    inset: auto 0 0;
+    height: 35%;
+    background: radial-gradient(ellipse at 50% 110%, rgb(212 86 26 / 0.38), transparent 62%);
+    pointer-events: none;
+  }
+  .ember-field { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: .7; }
+  .ember-field span { position: absolute; bottom: -1rem; width: .3rem; height: .3rem; border-radius: 999px; background: #DDA668; box-shadow: 0 0 12px #D4561A; animation: emberRise 5s linear infinite; }
+  .ember-field span:nth-child(1) { left: 12%; animation-delay: .2s; }
+  .ember-field span:nth-child(2) { left: 38%; animation-delay: 1.8s; animation-duration: 6s; }
+  .ember-field span:nth-child(3) { left: 64%; animation-delay: 3s; animation-duration: 4.5s; }
+  .ember-field span:nth-child(4) { left: 82%; animation-delay: 1s; animation-duration: 5.8s; }
+  .ember-field span:nth-child(5) { left: 52%; animation-delay: 3.8s; animation-duration: 6.5s; }
+  @keyframes pulseGlow { 50% { transform: scale(1.08); opacity: .75; } }
+  @keyframes emberRise { 0% { transform: translate3d(0, 0, 0) scale(.6); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate3d(2rem, -90vh, 0) scale(0); opacity: 0; } }
+  .skeleton {
+    @apply relative overflow-hidden bg-carvao-700;
+  }
+  .skeleton::after {
+    content: "";
+    @apply absolute inset-0 -translate-x-full;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.06), transparent);
+    animation: shimmer 1.4s infinite;
+  }
+}
+
+@layer utilities {
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

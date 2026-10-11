@@ -1,0 +1,300 @@
+// Gilson Parrilha — esquema PostgreSQL
+// Valores monetários SEMPRE em centavos inteiros (Int).
+// Restrições CHECK (valores >= 0 etc.) são adicionadas na migração SQL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────── Enums ─────────────
+
+enum AdminRole {
+  OWNER
+  ADMIN
+  STAFF
+}
+
+enum FulfillmentType {
+  DELIVERY
+  PICKUP
+}
+
+enum OrderStatus {
+  AGUARDANDO_CONTATO_WHATSAPP
+  CONFIRMADO
+  EM_PREPARACAO
+  PRONTO
+  SAIU_PARA_ENTREGA
+  CONCLUIDO
+  CANCELADO
+}
+
+enum OrderSource {
+  SITE
+}
+
+// ───────────── Administração ─────────────
+
+model Admin {
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String
+  email        String    @unique // sempre gravado em minúsculas pela aplicação
+  passwordHash String // Argon2id
+  role         AdminRole @default(ADMIN)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions      AdminSession[]
+  statusChanges OrderStatusHistory[]
+  auditLogs     AuditLog[]
+
+  @@map("admins")
+}
+
+// Sessão de servidor: o cookie leva só um token aleatório; aqui fica o HASH dele.
+model AdminSession {
+  id            String    @id @default(uuid()) @db.Uuid
+  adminId       String    @db.Uuid
+  tokenHash     String    @unique
+  csrfTokenHash String
+  ip            String?
+  userAgent     String?
+  createdAt     DateTime  @default(now())
+  lastUsedAt    DateTime  @default(now())
+  expiresAt     DateTime
+  revokedAt     DateTime?
+
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([expiresAt])
+  @@map("admin_sessions")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  adminId   String?  @db.Uuid
+  action    String // ex.: "product.update", "order.status_change"
+  entity    String // ex.: "Product"
+  entityId  String?
+  metadata  Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  admin Admin? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([adminId, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ───────────── Cardápio ─────────────
+
+model Category {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String   @unique
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+
+  @@index([isActive, sortOrder])
+  @@map("categories")
+}
+
+model Product {
+  id                   String    @id @default(uuid()) @db.Uuid
+  name                 String
+  slug                 String    @unique
+  description          String
+  ingredients          String[]
+  removableIngredients String[] // subconjunto de `ingredients` que o cliente pode pedir para retirar
+  priceCents           Int
+  imageUrl             String?
+  categoryId           String    @db.Uuid
+  isActive             Boolean   @default(true)
+  isAvailable          Boolean   @default(true)
+  isFeatured           Boolean   @default(false)
+  sortOrder            Int       @default(0)
+  archivedAt           DateTime? // arquivado = some do cardápio, mas preserva histórico
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  category   Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  extras     ProductExtra[]
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+  @@index([isActive, isAvailable])
+  @@index([isFeatured])
+  @@map("products")
+}
+
+model Extra {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  priceCents  Int
+  isActive    Boolean   @default(true)
+  isAvailable Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products   ProductExtra[]
+  orderExtras OrderItemExtra[]
+
+  @@index([isActive, isAvailable])
+  @@map("extras")
+}
+
+// Quais adicionais cada produto aceita.
+model ProductExtra {
+  productId String   @db.Uuid
+  extraId   String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  extra   Extra   @relation(fields: [extraId], references: [id], onDelete: Cascade)
+
+  @@id([productId, extraId])
+  @@index([extraId])
+  @@map("product_extras")
+}
+
+// ───────────── Pedidos ─────────────
+
+model Order {
+  id           String @id @default(uuid()) @db.Uuid
+  // Número curto para a equipe e para a mensagem do WhatsApp (sequencial, uso interno/exibição)
+  orderNumber  Int    @unique @default(autoincrement())
+  // Identificador público ALEATÓRIO, usado em GET /orders/:publicId (nunca sequencial)
+  publicId     String @unique
+
+  customerName  String
+  customerPhone String
+
+  fulfillmentType   FulfillmentType
+  deliveryAddress   String?
+  deliveryReference String?
+  customerNotes     String?
+
+  subtotalCents    Int
+  deliveryFeeCents Int
+  totalCents       Int
+
+  status             OrderStatus @default(AGUARDANDO_CONTATO_WHATSAPP)
+  outsideBusinessHours Boolean   @default(false)
+  source             OrderSource @default(SITE)
+
+  // Idempotência: mesma chave + mesmo corpo => mesmo pedido
+  idempotencyKey String? @unique
+  requestHash    String?
+
+  internalNotes      String?
+  confirmedAt        DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  items         OrderItem[]
+  statusHistory OrderStatusHistory[]
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@index([customerName])
+  @@map("orders")
+}
+
+// Snapshot comercial: nada aqui depende do cardápio atual.
+model OrderItem {
+  id                 String   @id @default(uuid()) @db.Uuid
+  orderId            String   @db.Uuid
+  position           Int      @default(0) // ordem do item no pedido (preserva a sequência enviada)
+  productId          String?  @db.Uuid
+  productName        String
+  unitPriceCents     Int
+  quantity           Int
+  removedIngredients String[]
+  notes              String?
+  lineTotalCents     Int // (preço unitário + adicionais) × quantidade
+
+  order   Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product?         @relation(fields: [productId], references: [id], onDelete: SetNull)
+  extras  OrderItemExtra[]
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model OrderItemExtra {
+  id             String  @id @default(uuid()) @db.Uuid
+  orderItemId    String  @db.Uuid
+  position       Int     @default(0)
+  extraId        String? @db.Uuid
+  name           String
+  unitPriceCents Int
+  quantity       Int     @default(1)
+
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  extra     Extra?    @relation(fields: [extraId], references: [id], onDelete: SetNull)
+
+  @@index([orderItemId])
+  @@map("order_item_extras")
+}
+
+model OrderStatusHistory {
+  id         String       @id @default(uuid()) @db.Uuid
+  orderId    String       @db.Uuid
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+  adminId    String?      @db.Uuid
+  note       String?
+  createdAt  DateTime     @default(now())
+
+  order Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  admin Admin? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt])
+  @@map("order_status_history")
+}
+
+// ───────────── Configurações (linha única, id = 1) ─────────────
+
+model StoreSettings {
+  id                       Int      @id @default(1)
+  tradeName                String   @default("Gilson Parrilha")
+  whatsappNumber           String // só dígitos com DDI, ex.: 5575999999999
+  address                  String?
+  // { "mon": [{"open":"18:00","close":"23:30"}], "tue": [], ... }
+  openingHours             Json
+  acceptsDelivery          Boolean  @default(true)
+  acceptsPickup            Boolean  @default(true)
+  deliveryFeeCents         Int      @default(0)
+  minOrderCents            Int      @default(0)
+  estimatedPrepMinutes     Int      @default(40)
+  acceptOrdersOutsideHours Boolean  @default(false)
+  defaultMessage           String?
+  socialLinks              Json     @default("{}")
+  menuSettings             Json     @default("{}")
+  timezone                 String   @default("America/Bahia")
+  updatedAt                DateTime @updatedAt
+
+  @@map("store_settings")
+}
